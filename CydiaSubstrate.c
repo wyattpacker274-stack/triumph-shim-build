@@ -5,6 +5,7 @@
 //     -arch arm64 -miphoneos-version-min=13.0 -o CydiaSubstrate CydiaSubstrate.c
 
 #import <objc/runtime.h>
+#import <objc/message.h>
 #import <dlfcn.h>
 #import <stdio.h>
 #import <string.h>
@@ -14,6 +15,8 @@
 #import <mach-o/loader.h>
 #import <mach-o/nlist.h>
 #import <pthread.h>
+
+// Foundation MUST come after objc/runtime.h to avoid forward-decl collisions on newer SDKs
 #import <Foundation/Foundation.h>
 
 #ifndef INDIRECT_SYMBOL_LOCAL
@@ -73,7 +76,6 @@ static void rebind_image(const struct mach_header *mh, intptr_t slide) {
     const struct nlist_64 *symtab = (const struct nlist_64 *)symtab_addr;
     const char *strtab = (const char *)strtab_addr;
 
-    // walk all segments/sections with pointer sections
     cur = (uint8_t *)(hdr + 1);
     for (uint32_t i = 0; i < hdr->ncmds; i++) {
         struct load_command *lc = (struct load_command *)cur;
