@@ -2,8 +2,9 @@
 // Loads (in order): iGameGod framework -> CydiaSubstrate shim -> tweaks.
 // Any single failure is logged, never fatal (matches old merged-build behavior).
 // Compile:
-//   xcrun -sdk iphoneos clang -shared -fobjc-arc -framework Foundation -framework UIKit \
-//     -arch arm64 -miphoneos-version-min=13.0 -o TweakLoader.dylib TweakLoader.c
+//   xcrun -sdk iphoneos clang -x objective-c -shared -fobjc-arc \
+//     -framework Foundation -framework UIKit -arch arm64 \
+//     -miphoneos-version-min=13.0 -o TweakLoader.dylib TweakLoader.c
 
 #import <objc/runtime.h>
 #import <dlfcn.h>
@@ -15,8 +16,8 @@ extern void MSHookFlush(void);
 
 static void *try_load(const char *label, const char *path) {
     void *h = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
-    if (h) { NSLog(@"[TweakLoader] OK   %@", label); }
-    else   { NSLog(@"[TweakLoader] FAIL %@ : %s", label, dlerror()); }
+    if (h) { NSLog(@"[TweakLoader] OK   %s", label); }
+    else   { NSLog(@"[TweakLoader] FAIL %s : %s", label, dlerror()); }
     return h;
 }
 
