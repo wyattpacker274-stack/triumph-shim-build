@@ -12,7 +12,7 @@
 #import <string.h>
 #import <stdlib.h>
 #import <mach/mach.h>
-#import <mach/mach_vm.h>
+#import <mach/vm_map.h>
 #import <mach-o/dyld.h>
 #import <mach-o/loader.h>
 #import <mach-o/nlist.h>
@@ -105,10 +105,10 @@ static void rebind_image(const struct mach_header *mh, intptr_t slide) {
                                 if (strcmp(a, b) != 0) continue;
                                 uintptr_t *slot = slots + e;
                                 vm_address_t page = (vm_address_t)slot & ~0xFFFULL;
-                                kern_return_t kr = mach_vm_protect(mach_task_self(), page, 0x1000, false,
+                                kern_return_t kr = vm_protect(mach_task_self(), page, 0x1000, false,
                                         VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY);
                                 if (kr != KERN_SUCCESS)
-                                    mach_vm_protect(mach_task_self(), page, 0x1000, false,
+                                    vm_protect(mach_task_self(), page, 0x1000, false,
                                         VM_PROT_READ | VM_PROT_WRITE);
                                 if (kr == KERN_SUCCESS || true) {
                                     if (_rb_list[r].replaced) *(_rb_list[r].replaced) = (void *)*slot;
