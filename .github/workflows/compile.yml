@@ -9,20 +9,20 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v4.2.2
+    - uses: actions/checkout@v5
     - name: Compile CydiaSubstrate shim + TweakLoader
       run: |
-        xcrun -sdk iphoneos clang -shared -fobjc-arc \
+        xcrun -sdk iphoneos clang -x objective-c -shared -fobjc-arc \
           -framework Foundation -framework UIKit \
           -arch arm64 -miphoneos-version-min=13.0 \
           -o CydiaSubstrate CydiaSubstrate.c
-        xcrun -sdk iphoneos clang -shared -fobjc-arc \
+        xcrun -sdk iphoneos clang -x objective-c -shared -fobjc-arc \
           -framework Foundation -framework UIKit \
           -arch arm64 -miphoneos-version-min=13.0 \
           -o TweakLoader.dylib TweakLoader.c
+        file CydiaSubstrate TweakLoader.dylib
         codesign --sign - --force CydiaSubstrate || true
         codesign --sign - --force TweakLoader.dylib || true
-        file CydiaSubstrate TweakLoader.dylib
     - name: Upload dylibs
       uses: actions/upload-artifact@v4
       with:
