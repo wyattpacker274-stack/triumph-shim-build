@@ -1,6 +1,5 @@
-// TweakLoader - tolerant loader for Triumph 2.134
-// Loads (in order): iGameGod framework -> CydiaSubstrate shim -> tweaks.
-// Any single failure is logged, never fatal (matches old merged-build behavior).
+// TweakLoader - tolerant loader for Triumph 2.134 with explicit GameGod init
+// Loads: iGameGod framework -> CydiaSubstrate shim -> tweaks -> calls GameGod.embedGameGod()
 // Compile:
 //   xcrun -sdk iphoneos clang -x objective-c -shared -fobjc-arc \
 //     -framework Foundation -framework UIKit -arch arm64 \
@@ -19,14 +18,67 @@ static void *try_load(const char *label, const char *path) {
     return h;
 }
 
+// GameGod class forward declaration
+@class GameGod;
+
+static void init_gamegod(void) {
+    // Load the framework first
+    void *fw = dlopen("@executable_path/Frameworks/w1z6p5en.framework/w1z6p5en", RTLD_LAZY | RTLD_GLOBAL);
+    if (!fw) {
+        NSLog(@"[TweakLoader] GameGod framework load failed: %s", dlerror());
+        return;
+    }
+    NSLog(@"[TweakLoader] GameGod framework loaded");
+
+    // Get GameGod class
+    Class GameGodClass = objc_getClass("GameGod");
+    if (!GameGodClass) {
+        // Try via bundle
+        NSBundle *bundle = [NSBundle bundleWithPath:@"/var/containers/Bundle/Application/../Frameworks/w1z6p5en.framework"];
+        if (!bundle) {
+            bundle = [NSBundle bundleWithPath:@"/var/containers/Bundle/Application/../Frameworks/w1z6p5en.framework/w1z6p5en"];
+        }
+        if (bundle) [bundle load];
+        GameGodClass = objc_getClass("GameGod");
+    }
+    if (!GameGodClass) {
+        NSLog(@"[TweakLoader] GameGod class not found after framework load");
+        return;
+    }
+    NSLog(@"[TweakLoader] GameGod class found: %@", GameGodClass);
+
+    // Call prepareResourceBundle
+    SEL prepResSel = NSSelectorFromString(@"prepareResourceBundle");
+    if ([GameGodClass respondsToSelector:prepResSel]) {
+        [GameGodClass performSelector:prepResSel];
+        NSLog(@"[TweakLoader] prepareResourceBundle called");
+    }
+
+    // Call prepareTemporaryStorage
+    SEL prepTmpSel = NSSelectorFromString(@"prepareTemporaryStorage");
+    if ([GameGodClass respondsToSelector:prepTmpSel]) {
+        [GameGodClass performSelector:prepTmpSel];
+        NSLog(@"[TweakLoader] prepareTemporaryStorage called");
+    }
+
+    // Call embedGameGod
+    SEL embedSel = NSSelectorFromString(@"embedGameGod");
+    if ([GameGodClass respondsToSelector:embedSel]) {
+        [GameGodClass performSelector:embedSel];
+        NSLog(@"[TweakLoader] embedGameGod called - CHEAT MENU SHOULD APPEAR");
+    } else {
+        NSLog(@"[TweakLoader] embedGameGod selector not found");
+    }
+}
+
 static void load_all(void) {
     usleep(300000); // let app finish basic launch
 
-    // 1. iGameGod cheat menu framework (embedded, randomized name)
-    try_load("iGameGod framework", "@executable_path/Frameworks/w1z6p5en.framework/w1z6p5en");
-
-    // 2. CydiaSubstrate shim (app bundle root) — MUST load first so symbols exist
+    // 1. CydiaSubstrate shim (app bundle root) — MUST load first so symbols exist
     void *shim = try_load("CydiaSubstrate shim", "@executable_path/CydiaSubstrate");
+
+    // 2. iGameGod cheat menu framework (embedded, randomized name)
+    try_load("iGameGod framework", "@executable_path/Frameworks/w1z6p5en.framework/w1z6p5en");
 
     // 3. Identity spoofer (patched to use @executable_path/CydiaSubstrate)
     try_load("MaxIdentity", "@executable_path/Frameworks/MaxIdentity.dylib");
@@ -52,6 +104,9 @@ static void load_all(void) {
     } else {
         NSLog(@"[TweakLoader] shim not loaded, skipping MSHookFlush");
     }
+
+    // 8. Explicit GameGod initialization - this is what actually shows the menu
+    init_gamegod();
 
     NSLog(@"[TweakLoader] sequence complete");
 }
