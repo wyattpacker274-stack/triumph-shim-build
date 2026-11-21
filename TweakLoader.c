@@ -12,8 +12,6 @@
 #import <unistd.h>
 #import <Foundation/Foundation.h>
 
-extern void MSHookFlush(void);
-
 static void *try_load(const char *label, const char *path) {
     void *h = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
     if (h) { NSLog(@"[TweakLoader] OK   %s", label); }
@@ -27,8 +25,8 @@ static void load_all(void) {
     // 1. iGameGod cheat menu framework (embedded, randomized name)
     try_load("iGameGod framework", "@executable_path/Frameworks/w1z6p5en.framework/w1z6p5en");
 
-    // 2. CydiaSubstrate shim (app bundle root)
-    try_load("CydiaSubstrate shim", "@executable_path/CydiaSubstrate");
+    // 2. CydiaSubstrate shim (app bundle root) — MUST load first so symbols exist
+    void *shim = try_load("CydiaSubstrate shim", "@executable_path/CydiaSubstrate");
 
     // 3. Identity spoofer (patched to use @executable_path/CydiaSubstrate)
     try_load("MaxIdentity", "@executable_path/Frameworks/MaxIdentity.dylib");
@@ -42,8 +40,19 @@ static void load_all(void) {
     // 6. iGSpoof (needs @rpath/libroot.dylib - may fail, tolerated)
     try_load("iGSpoof", "@executable_path/Frameworks/iGSpoof.dylib");
 
-    // 7. Apply all queued function rebindings across every image
-    MSHookFlush();
+    // 7. Resolve MSHookFlush from the shim we just loaded and call it
+    if (shim) {
+        void (*MSHookFlush)(void) = dlsym(shim, "MSHookFlush");
+        if (MSHookFlush) {
+            MSHookFlush();
+            NSLog(@"[TweakLoader] MSHookFlush called");
+        } else {
+            NSLog(@"[TweakLoader] MSHookFlush not found in shim: %s", dlerror());
+        }
+    } else {
+        NSLog(@"[TweakLoader] shim not loaded, skipping MSHookFlush");
+    }
+
     NSLog(@"[TweakLoader] sequence complete");
 }
 
