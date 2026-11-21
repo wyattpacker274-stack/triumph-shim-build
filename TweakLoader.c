@@ -5,16 +5,18 @@
 //   xcrun -sdk iphoneos clang -shared -fobjc-arc -framework Foundation -framework UIKit \
 //     -arch arm64 -miphoneos-version-min=13.0 -o TweakLoader.dylib TweakLoader.c
 
+#import <objc/runtime.h>
 #import <dlfcn.h>
 #import <pthread.h>
 #import <unistd.h>
+#import <Foundation/Foundation.h>
 
 extern void MSHookFlush(void);
 
 static void *try_load(const char *label, const char *path) {
     void *h = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
-    if (h) { fprintf(stderr, "[TweakLoader] OK   %s\n", label); }
-    else   { fprintf(stderr, "[TweakLoader] FAIL %s : %s\n", label, dlerror()); }
+    if (h) { NSLog(@"[TweakLoader] OK   %@", label); }
+    else   { NSLog(@"[TweakLoader] FAIL %@ : %s", label, dlerror()); }
     return h;
 }
 
@@ -41,7 +43,7 @@ static void load_all(void) {
 
     // 7. Apply all queued function rebindings across every image
     MSHookFlush();
-    fprintf(stderr, "[TweakLoader] sequence complete\n");
+    NSLog(@"[TweakLoader] sequence complete");
 }
 
 __attribute__((constructor))
