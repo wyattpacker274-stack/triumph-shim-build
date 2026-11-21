@@ -1,8 +1,9 @@
 // CydiaSubstrate shim for non-jailbroken iOS
 // MSHookMessageEx = full (ObjC runtime). MSHookFunction = fishhook-style rebinding.
 // Compile:
-//   xcrun -sdk iphoneos clang -shared -fobjc-arc -framework Foundation -framework UIKit \
-//     -arch arm64 -miphoneos-version-min=13.0 -o CydiaSubstrate CydiaSubstrate.c
+//   xcrun -sdk iphoneos clang -x objective-c -shared -fobjc-arc \
+//     -framework Foundation -framework UIKit -arch arm64 \
+//     -miphoneos-version-min=13.0 -o CydiaSubstrate CydiaSubstrate.c
 
 #import <objc/runtime.h>
 #import <objc/message.h>
@@ -11,12 +12,11 @@
 #import <string.h>
 #import <stdlib.h>
 #import <mach/mach.h>
+#import <mach/mach_vm.h>
 #import <mach-o/dyld.h>
 #import <mach-o/loader.h>
 #import <mach-o/nlist.h>
 #import <pthread.h>
-
-// Foundation MUST come after objc/runtime.h to avoid forward-decl collisions on newer SDKs
 #import <Foundation/Foundation.h>
 
 #ifndef INDIRECT_SYMBOL_LOCAL
@@ -144,7 +144,7 @@ void MSHookMessageEx(Class cls, SEL sel, IMP hook, IMP *old) {
     }
     IMP orig = method_setImplementation(m, hook);
     if (old) *old = orig;
-    NSLog(@"[SubstrateShim] hooked -[%@ %@]", class_getName(cls), NSStringFromSelector(sel));
+    NSLog(@"[SubstrateShim] hooked -[%s %@]", class_getName(cls), NSStringFromSelector(sel));
 }
 
 __attribute__((visibility("default")))
