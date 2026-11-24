@@ -1,0 +1,87 @@
+name: Deep Sign IPA (macOS codesign)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: 'Direct download URL to the IPA (or leave empty to use repo artifact)'
+        required: false
+        type: string
+
+jobs:
+  sign:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download IPA
+        id: download
+        run: |
+          if [ -n "${{ github.event.inputs.ipa_url }}" ]; then
+            curl -L -o app.ipa "${{ github.event.inputs.ipa_url }}"
+          else
+            IPA=$(find . -name "*.ipa" -maxdepth 2 | head -1)
+            if [ -z "$IPA" ]; then
+              echo "No IPA found and no URL provided"
+              exit 1
+            fi
+            cp "$IPA" app.ipa
+          fi
+          echo "ipa_path=app.ipa" >> $GITHUB_OUTPUT
+
+      - name: Extract IPA
+        run: |
+          unzip -q "${{ steps.download.outputs.ipa_path }}" -d extracted
+          APP=$(find extracted/Payload -name "*.app" -maxdepth 1 | head -1)
+          echo "app_path=$APP" >> $GITHUB_OUTPUT
+
+      - name: Create entitlements
+        run: |
+          cat > ents.plist << 'EOF'
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+        <key>platform-application</key>
+        <true/>
+        <key>get-task-allow</key>
+        <true/>
+        <key>com.apple.private.skip-library-validation</key>
+        <true/>
+    </dict>
+    </plist>
+    EOF
+
+      - name: Find and sign ALL Mach-O binaries
+        run: |
+          APP="${{ steps.download.outputs.app_path }}"
+          echo "Finding Mach-O files in $APP..."
+          MACHOS=$(find "$APP" -type f -exec file {} \; | grep "Mach-O" | cut -d: -f1)
+          echo "Found $(echo "$MACHOS" | wc -l) Mach-O files:"
+          echo "$MACHOS"
+          for bin in $MACHOS; do
+            echo "Signing: $bin"
+            codesign --force --options runtime --entitlements ents.plist --sign - "$bin" || {
+              echo "Failed to sign $bin"
+              exit 1
+            }
+          done
+          echo "Verifying..."
+          for bin in $MACHOS; do
+            codesign -vvv --entitlements ents.plist "$bin" || echo "WARNING: verification failed for $bin"
+          done
+
+      - name: Re-package IPA
+        run: |
+          cd extracted
+          zip -r -q ../Triumph_2.134_iGameGod_DEEP_SIGNED.ipa Payload
+          cd ..
+
+      - name: Upload signed IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: deep-signed-ipa
+          path: Triumph_2.134_iGameGod_DEEP_SIGNED.ipa
+          retention-days: 7
