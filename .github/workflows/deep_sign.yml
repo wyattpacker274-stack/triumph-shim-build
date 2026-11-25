@@ -7,11 +7,6 @@ on:
         description: 'Direct download URL to the IPA'
         required: true
         type: string
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/deep_sign.yml'
-      - 'trigger_deep_sign.txt'
 
 jobs:
   sign:
